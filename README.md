@@ -50,12 +50,12 @@ lightblue.png
 
 ## Notes
 
-The way I approached the problem was to add a 100 ms periodic event to the event queue for reading the temperature sensor. Each event will push the temperature data to a ring buffer so we can maintain the ten most recent readings. Once that GATT characteristic is read, we empty the circular queue into the GATT characteristic value.
+The way I approached the problem was to add a 100 ms periodic event to the event queue for reading the temperature sensor. Each event will push the temperature data to a ring buffer so we can maintain the ten most recent readings. Once that GATT characteristic is read, we empty the ring buffer into the GATT characteristic value.
 
 This is my first time using newt, and I was actually impressed with its abstractions, was fun to use. I did have some concerns that could be worked on future improvements:
 
 The first is the task priority of that temperature task. Should the priority be lower, the same, or higher than the BLE_LL job? I'm not quite sure if the priority matters since we are using an event queue design.
 
-The second was the ring buffer. I noticed that there is a mbufs library, and I’m guessing that might be a better option for the circular queue. It’s an improvement I would like to make but wanted to remain in the 2-3 hour time commitment. 
+The second was the ring buffer. I noticed that there is a mbufs library, and I’m guessing that might be a better option for the ring buffer. It’s an improvement I would like to make but wanted to remain in the 2-3 hour time commitment. 
 
 The third is the thread-safety of the ring buffer. This is something I would like to investigate further. As it stands, an interrupt could come in the middle of the ring buffer push operation. This could be problematic. 

@@ -19,41 +19,43 @@
 #
 -->
 
-# Apache Blinky
+# BLE Temperature Sensor
 
 ## Overview
 
-Apache Blinky is a skeleton for new Apache Mynewt projects.  The user downloads
-this skeleton by issuing the "newt new" command (using Apache Newt).  Apache
-blinky also contains an example app and target for use with Apache Mynewt to
-help you get started.
+BLE Temperature Sensor is almost identical to the building instructions and code structure as the sample project.
+https://github.com/lance-proxy/mynewt_proj
 
-## Building
+The difference includes new images and the following modifications to source files from the sample project. 
 
-Apache Blinky contains an example Apache Mynewt application called blinky.
-When executed on suitably equipped hardware, this application repeatedly blinks
-an LED.  The below procedure describes how to build this application for the
-Apache Mynewt simulator.
+temp.c
+-contains the ring buffer that temperature measurements get pushed on 
 
-1. Download and install Apache Newt.
+main.c
+-added a new event/task to periodic send an event every 100ms to push temperature measurements to the ring buffer
 
-You will need to download the Apache Newt tool, as documented in the [Getting Started Guide](https://mynewt.apache.org/latest/get_started/index.html).
+gatt_svr.c
+-empty ring buffer into GATT characteristic
 
-2. Download the Apache Mynewt Core package (executed from the blinky directory).
+bufferlog.png
+-debug mode where each temperature measured gets printed when pushed to the ring buffer. This mode was used to verify the data being read is accurate
 
-```no-highlight
-    $ newt install
-```
 
-3. Build the blinky app for the sim platform using the "my_blinky_sim" target
-(executed from the blinky directory).
+consolelogs.png
+-debug mode off. The temperature measurements are shown when the GATT characteristic is read.
 
-```no-highlight
-    $ newt build my_blinky_sim
-```
+lightblue.png
+-screenshot from lightblue showing the temperature measurements read.
 
-The Apache Newt tool should indicate the location of the generated blinky
-executable.  Since the simulator does not have an LED to blink, this version of
-blinky is not terribly exciting - a printed message indicating the current LED
-state.  To learn how to build blinky for actual hardware, please see the
-[Getting Started Guide](https://mynewt.apache.org/latest/get_started/index.html).
+
+## Notes
+
+The way I approached the problem was to add a 100 ms periodic event to the event queue for reading the temperature sensor. Each event will push the temperature data to a ring buffer so we can maintain the ten most recent readings. Once that GATT characteristic is read, we empty the circular queue into the GATT characteristic value.
+
+This is my first time using newt, and I was actually impressed with its abstractions, was fun to use. I did have some concerns that could be worked on future improvements:
+
+The first is the task priority of that temperature task. Should the priority be lower, the same, or higher than the BLE_LL job? I'm not quite sure if the priority matters since we are using an event queue design.
+
+The second was the ring buffer. I noticed that there is a mbufs library, and I’m guessing that might be a better option for the circular queue. It’s an improvement I would like to make but wanted to remain in the 2-3 hour time commitment. 
+
+The third is the thread-safety of the ring buffer. This is something I would like to investigate further. As it stands, an interrupt could come in the middle of the ring buffer push operation. This could be problematic. 

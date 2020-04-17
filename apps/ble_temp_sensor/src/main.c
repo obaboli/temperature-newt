@@ -174,7 +174,7 @@ static void
 temp_cb(struct os_event *ev)
 {
     assert(ev);
-    push_temp_rbuffer();
+    push_temp_rbuffer(get_temp_measurement());
     return;
 }
 

@@ -26,7 +26,7 @@ extern "C" {
 
 void init_temp(void);
 int16_t get_temp_measurement(void);
-void push_temp_rbuffer(void);
+void push_temp_rbuffer(int16_t data);
 int16_t pop_temp_rbuffer(void);
 bool empty_temp_rbuffer(void);
 

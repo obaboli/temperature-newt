@@ -5,7 +5,7 @@
 #define TEMP_BUFFER_SIZE 10
 #define TEMP_ERROR_VALUE 0x7FFF
 
-typedef struct ring_buffer {
+typedef struct ringbuffer {
     uint8_t head;
     uint8_t size;
     int16_t* buf;
@@ -13,13 +13,14 @@ typedef struct ring_buffer {
 
 static RB rbuffer;
 static int16_t buffer[TEMP_BUFFER_SIZE];
-//static os_sr_t sr;
+static struct os_mutex ringbuffer_mutex;
 
 void init_temp(void)
 {
     /* Prepare the internal temperature module for measurement */
     nrf_temp_init();
-    
+    assert(os_mutex_init(&ringbuffer_mutex) == 0);
+
     /* Set our ring buffer values */
     rbuffer.head = 0;
     rbuffer.size = 0;
@@ -43,18 +44,11 @@ get_temp_measurement(void)
 
 /* periodic timer event triggered which means we need to push a new tempature value */
 void
-push_temp_rbuffer(void)
+push_temp_rbuffer(int16_t data)
 {
-    /* TODO: investigate potenial thread saftey issues. 
-    ** It seems that the BLE read chactersitic could interrupt this in the middle of pushing 
-    ** a new value to the ring buffer. This could be problematic. 
-    */
-    //OS_ENTER_CRITICAL(sr);
-
-    rbuffer.buf[rbuffer.head] = get_temp_measurement();
-    
-    /* Debug message of each tempature value being pushed to the circular queue */
-    //LOG(DEBUG, "value pushed %d\n", rbuffer.buf[rbuffer.head]);
+    os_mutex_pend(&ringbuffer_mutex, OS_TIMEOUT_NEVER);
+   
+    rbuffer.buf[rbuffer.head] = data;
     rbuffer.head = (rbuffer.head + 1) % TEMP_BUFFER_SIZE;
     
     if(rbuffer.size != TEMP_BUFFER_SIZE)
@@ -62,27 +56,44 @@ push_temp_rbuffer(void)
         rbuffer.size++;
     }
 
-    //OS_EXIT_CRITICAL(sr);
+    os_mutex_release(&ringbuffer_mutex);
 }
 
 /* returns the most recent tempature measurement */
 int16_t
 pop_temp_rbuffer(void)
 {
+    os_mutex_pend(&ringbuffer_mutex, OS_TIMEOUT_NEVER);
+
     if(rbuffer.size == 0)
     {
+        os_mutex_release(&ringbuffer_mutex);
         return TEMP_ERROR_VALUE;
     }
 
     /* Read out LIFO (freshest to oldest) */
     rbuffer.head = (rbuffer.head - 1 + TEMP_BUFFER_SIZE) % TEMP_BUFFER_SIZE;
+    int16_t data = rbuffer.buf[rbuffer.head];
     rbuffer.size--;
-    return rbuffer.buf[rbuffer.head];
+
+    os_mutex_release(&ringbuffer_mutex);
+    return data;
 }
 
 bool
 empty_temp_rbuffer(void)
 {
-    return rbuffer.size == 0;
+    os_mutex_pend(&ringbuffer_mutex, OS_TIMEOUT_NEVER);
+
+    bool emptyFlag = false;
+    
+    if(rbuffer.size == 0) {
+        emptyFlag = true;
+    }
+
+    os_mutex_release(&ringbuffer_mutex);
+
+    return emptyFlag;
+
 }
 
